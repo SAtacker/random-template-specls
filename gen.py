@@ -4,6 +4,7 @@ import subprocess
 from specl import TemplateSpecl
 import shutil
 import tqdm
+import matplotlib.pyplot as plt
 
 
 def main(args):
@@ -120,10 +121,49 @@ if __name__ == "__main__":
         type=int,
     )
     args_parser.add_argument(
+        "--test-runs",
+        help="Number of headers to plot",
+        action="store",
+        default=10,
+        type=int,
+    )
+    args_parser.add_argument(
+        "--test-run-steps",
+        help="Number of steps",
+        action="store",
+        default=10,
+        type=int,
+    )
+    args_parser.add_argument(
+        "--test-run-start",
+        help="Start point for tests",
+        action="store",
+        default=1,
+        type=int,
+    )
+    args_parser.add_argument(
         "--clang-path",
         help="Boolean to compile each module",
         action="store",
         default="clang++",
     )
     args = args_parser.parse_args()
-    main(args)
+    res = []
+    headers = []
+    args.clang_path = "clang++"
+    for i in range(args.test_run_start, args.test_runs, args.test_run_steps):
+        print(f"Iteration: {i}")
+        args.headers = i
+        res.append(main(args))
+        headers.append(i)
+    plt.plot(headers, res, color="green")
+    res_n = []
+    headers_n = []
+    args.clang_path = "../llvm-project/build/bin/clang++"
+    for i in range(args.test_run_start, args.test_runs, args.test_run_steps):
+        print(f"Iteration: {i}")
+        args.headers_n = i
+        res_n.append(main(args))
+        headers_n.append(i)
+    plt.plot(headers_n, res_n, color="red")
+    plt.savefig(f"patch_plot.png")
