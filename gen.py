@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 def main(args):
     if os.path.exists("autogen"):
         shutil.rmtree("autogen")
-    else:
-        os.mkdir("autogen")
     mod_dir = "autogen"
     os.mkdir(mod_dir)
     vfs_overlay = (
@@ -93,8 +91,9 @@ int main(){
         total_ex_time = total_ex_time.strip()
         total_ex_time = float(total_ex_time)
         avg += total_ex_time
-    print(f"Avg Total ex time: {total_ex_time/args.compile_runs}")
-    return total_ex_time
+    avg = avg/args.compile_runs
+    print(f"Avg Total ex time: {avg}")
+    return avg
 
 
 if __name__ == "__main__":
@@ -162,8 +161,22 @@ if __name__ == "__main__":
     args.clang_path = "../llvm-project/build/bin/clang++"
     for i in range(args.test_run_start, args.test_runs, args.test_run_steps):
         print(f"Iteration: {i}")
-        args.headers_n = i
+        args.headers = i
         res_n.append(main(args))
         headers_n.append(i)
     plt.plot(headers_n, res_n, color="red")
     plt.savefig(f"patch_plot.png")
+    try:
+        os.remove("data_clang-14.txt")
+        os.remove("data_clang_custom_patch.txt")
+        os.remove("data_clang_indexes.txt")
+    except:
+        pass
+    for index, tup in enumerate(zip(res, res_n)):
+        i, j = tup
+        with open("data_clang-14.txt", "a") as f:
+            f.write(str(i) + "\n")
+        with open("data_clang_custom_patch.txt", "a") as f:
+            f.write(str(j) + "\n")
+        with open("data_clang_indexes.txt", "a") as f:
+            f.write(str(index) + "\n")
