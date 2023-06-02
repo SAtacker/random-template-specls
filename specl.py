@@ -106,5 +106,19 @@ class TemplateSpecl:
                     continue
         return ret_str
 
+    def generate_cpp(self) -> str:
+        ret_str = ""
+        for id in self._specls_done:
+            temp_list = self.base_types[:]
+            if len(temp_list) < id:
+                temp_list = [
+                    self.base_types[i % len(self.base_types)] for i in range(0, id)
+                ]
+            ret_str += self._base_decl_type_name
+            ret_str += "<" + ",".join(temp_list[:id]) + ">"
+            ret_str += " " + "".join(random.choices(string.ascii_uppercase, k=12))
+            ret_str += ";\n"
+        return ret_str
+
     def __str__(self) -> str:
         return ""
