@@ -324,6 +324,13 @@ if __name__ == "__main__":
                 float(du_opt.stdout.decode().split("G")[0]) * 1000
             )
     plt.plot(headers_n_n, res_n_n, color="green", label="Shreyas's D144831")
+    SMALL_SIZE = 8
+    MEDIUM_SIZE = 10
+    BIGGER_SIZE = 12
+
+    plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+    plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+    plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
     plt.xlabel("Number of Specializations Unused")
     plt.ylabel("Execution Time (s)")
     plt.title(
