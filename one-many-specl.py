@@ -49,7 +49,7 @@ def gen(args):
     os.mkdir("autogen")
     os.mkdir("autogen/pcms")
     os.mkdir("plots")
-    main_header = "template<typename T, typename ...Ts> class Pattern { T field; };\n"
+    main_header = "template<typename T, typename ...Ts> struct Pattern { int f() {return 42;} };\n"
     with open("autogen/main_header.hpp", "w+") as f:
         f.write(main_header)
     aux_headers = []
@@ -62,8 +62,8 @@ def gen(args):
             for specl_id in range(0, args.specls):
                 struct_name = f"aux_header{header_id}{specl_id}"
                 specl += f"struct {struct_name}" + "{};\n"
-                specl += "template<> class " + f"Pattern<{struct_name}>" + "{};\n"
-                main_specls_used.append(f"Pattern<{struct_name}>")
+                specl += "template<> struct " + f"Pattern<{struct_name}>" + "{ int f() {return 41;} };\n"
+                main_specls_used.append(f"Pattern<{struct_name},{_base_types[random.randint(0,len(_base_types)-1)]}>")
             f.write(specl)
         aux_headers.append(header_path)
 
@@ -116,10 +116,11 @@ def gen(args):
         print("*****************Error************************")
         print(res.stdout.decode())
         exit(1)
+    # print(res.stdout.decode())
     module_args_string += " -fmodule-file=main_header=./autogen/pcms/main_header.pcm "
 
-    for header_id in range(1, args.headers):
-        res = subprocess.run(
+    for header_id in tqdm.tqdm(range(1, args.headers)):
+        res = subprocess.run("/usr/bin/time -v " +
             args.clang_path
             + f" -x c++-header -Xclang -emit-module -o autogen/pcms/{header_id}.pcm -fmodules autogen/module.modulemap -fmodule-name={header_id} -fmodule-file={header_id}=./autogen/pcms/{header_id}.pcm -fmodule-file=main_header=./autogen/pcms/main_header.pcm -std=c++17 2>&1",
             capture_output=True,
@@ -129,6 +130,7 @@ def gen(args):
             print("*****************Error************************")
             print(res.stdout.decode())
             exit(1)
+        # print(res.stdout.decode())
         module_args_string += (
             f" -fmodule-file={header_id}=./autogen/pcms/{header_id}.pcm "
         )
@@ -139,13 +141,14 @@ def gen(args):
         res = subprocess.run(
             "/usr/bin/time -v "
             + args.clang_path
-            + f"  -std=c++17 ./autogen/main.cpp {module_args_string} -Xclang -print-stats -ftime-report 2>&1",
+            + f"  -std=c++17 ./autogen/main.cpp -fmodules {module_args_string} -Xclang -print-stats -ftime-report 2>&1",
             capture_output=True,
             shell=True,
         )
         if "error" in res.stderr.decode():
             print(f"Error in clang: {res.stderr.decode()}")
             exit(1)
+        # print(res.stdout.decode())
         true_res = res.stdout.decode().split("Clang front-end time report")[1]
         memory_current = (
             float(
@@ -232,14 +235,15 @@ if __name__ == "__main__":
 
     res = []
     headers = []
-    args.clang_path = "clang++"
+    args.clang_path = "../llvm-project/no_patch_debug/bin/clang++"
     on_disk_memory = []
     memory_resident_avg = []
-    CONST = args.headers
+    CONST = args.pspecls
     for i in range(args.test_run_start, CONST, args.test_run_steps):
         print(f"Iteration: {i}")
-        args.headers = i
+        # args.headers = i
         # args.specls = i
+        args.pspecls = i
         _res, _memory = gen(args)
         res.append(_res)
         memory_resident_avg.append(_memory)
@@ -256,16 +260,17 @@ if __name__ == "__main__":
         elif "G" in du_opt.stdout.decode():
             on_disk_memory.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
 
-    plt.plot(headers, res, color="green")
+    plt.plot(headers, res, color="red", label='Clang 17.0.0 c83318')
     res_n = []
     headers_n = []
-    args.clang_path = "../llvm-project/build/bin/clang++"
+    args.clang_path = "../llvm-project/patch_without_map_debug/bin/clang++"
     on_disk_memory_n = []
     memory_resident_avg_n = []
     for i in range(args.test_run_start, CONST, args.test_run_steps):
         print(f"Iteration: {i}")
-        args.headers = i
+        # args.headers = i
         # args.specls = i
+        args.pspecls = i
         _res, _memory = gen(args)
         res_n.append(_res)
         headers_n.append(i)
@@ -281,40 +286,69 @@ if __name__ == "__main__":
             on_disk_memory_n.append(float(du_opt.stdout.decode().split("M")[0]))
         elif "G" in du_opt.stdout.decode():
             on_disk_memory_n.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
-    plt.plot(headers_n, res_n, color="red")
+    plt.plot(headers_n, res_n, color="blue", label = "Vassil's D41416")
+    res_n_n = []
+    headers_n_n = []
+    args.clang_path = "../llvm-project/build/bin/clang++"
+    on_disk_memory_n_n = []
+    memory_resident_avg_n_n = []
+    for i in range(args.test_run_start, CONST, args.test_run_steps):
+        print(f"Iteration: {i}")
+        # args.headers = i
+        # args.specls = i
+        args.pspecls = i
+        _res, _memory = gen(args)
+        res_n_n.append(_res)
+        headers_n_n.append(i)
+        memory_resident_avg_n_n.append(_memory)
+        du_opt = subprocess.run(
+            "du -sh autogen/pcms",
+            capture_output=True,
+            shell=True,
+        )
+        if "K" in du_opt.stdout.decode():
+            on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("K")[0]) / 1000)
+        elif "M" in du_opt.stdout.decode():
+            on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("M")[0]))
+        elif "G" in du_opt.stdout.decode():
+            on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
+    plt.plot(headers_n_n, res_n_n, color="green", label = "Shreyas's D144831")
+    plt.legend()
     plt.savefig("plots/patch_plot.png")
     plt.cla()
+    plt.plot(headers_n_n, on_disk_memory_n_n, color="blue")
     plt.plot(headers_n, on_disk_memory_n, color="red")
     plt.plot(headers, on_disk_memory, color="green")
     plt.savefig("plots/memory_patch_plot.png")
     plt.cla()
+    plt.plot(headers_n_n, memory_resident_avg_n_n, color="blue")
     plt.plot(headers_n, memory_resident_avg_n, color="red")
     plt.plot(headers, memory_resident_avg, color="green")
     plt.savefig("plots/resident_memory_plot.png")
-    plt.cla()
-    try:
-        os.remove("plots/data_clang-14.txt")
-        os.remove("plots/data_clang_custom_patch.txt")
-        os.remove("plots/data_clang_indexes.txt")
-        os.remove("plots/data_clang_custom_patch_memory.txt")
-        os.remove("plots/data_clang_14_memory.txt")
-        os.remove("plots/data_clang_14_memory_resident.txt")
-        os.remove("plots/data_clang_custom_memory_resident.txt")
-    except:
-        pass
-    for index, tup in enumerate(zip(res, res_n)):
-        i, j = tup
-        with open("plots/data_clang-14.txt", "a") as f:
-            f.write(str(i) + "\n")
-        with open("plots/data_clang_custom_patch.txt", "a") as f:
-            f.write(str(j) + "\n")
-        with open("plots/data_clang_indexes.txt", "a") as f:
-            f.write(str(index) + "\n")
-        with open("plots/data_clang_14_memory.txt", "a") as f:
-            f.write(str(on_disk_memory[index]) + "\n")
-        with open("plots/data_clang_custom_patch_memory.txt", "a") as f:
-            f.write(str(on_disk_memory_n[index]) + "\n")
-        with open("plots/data_clang_custom_memory_resident.txt", "a") as f:
-            f.write(str(memory_resident_avg_n[index]) + "\n")
-        with open("plots/data_clang_14_memory_resident.txt", "a") as f:
-            f.write(str(memory_resident_avg[index]) + "\n")
+    # plt.cla()
+    # try:
+    #     os.remove("plots/data_clang-14.txt")
+    #     os.remove("plots/data_clang_custom_patch.txt")
+    #     os.remove("plots/data_clang_indexes.txt")
+    #     os.remove("plots/data_clang_custom_patch_memory.txt")
+    #     os.remove("plots/data_clang_14_memory.txt")
+    #     os.remove("plots/data_clang_14_memory_resident.txt")
+    #     os.remove("plots/data_clang_custom_memory_resident.txt")
+    # except:
+    #     pass
+    # for index, tup in enumerate(zip(res, res_n)):
+    #     i, j = tup
+    #     with open("plots/data_clang-14.txt", "a") as f:
+    #         f.write(str(i) + "\n")
+    #     with open("plots/data_clang_custom_patch.txt", "a") as f:
+    #         f.write(str(j) + "\n")
+    #     with open("plots/data_clang_indexes.txt", "a") as f:
+    #         f.write(str(index) + "\n")
+    #     with open("plots/data_clang_14_memory.txt", "a") as f:
+    #         f.write(str(on_disk_memory[index]) + "\n")
+    #     with open("plots/data_clang_custom_patch_memory.txt", "a") as f:
+    #         f.write(str(on_disk_memory_n[index]) + "\n")
+    #     with open("plots/data_clang_custom_memory_resident.txt", "a") as f:
+    #         f.write(str(memory_resident_avg_n[index]) + "\n")
+    #     with open("plots/data_clang_14_memory_resident.txt", "a") as f:
+    #         f.write(str(memory_resident_avg[index]) + "\n")

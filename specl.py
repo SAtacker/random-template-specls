@@ -43,7 +43,7 @@ class TemplateSpecl:
         self._ids[self._base_struct_id] = -1
         self._base_decl_type_name = f"_rand_class_base_{self._base_struct_id}"
         self.base_decl = (
-            "template <typename ...> struct " + self._base_decl_type_name + " { };"
+            "template <typename ...> struct " + self._base_decl_type_name + " { int f() { return 42; } };"
         )
         self._specls_done = []  # list of speclizations done
 
@@ -71,7 +71,7 @@ class TemplateSpecl:
                 + "<"
                 + _typename_names
                 + ">"
-                + " { };"
+                + " { int f() {return 2;} };"
             )
             temp_list = self.base_types[:]
             if len(temp_list) < n_specls:
