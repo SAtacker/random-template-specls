@@ -62,8 +62,14 @@ def gen(args):
             for specl_id in range(0, args.specls):
                 struct_name = f"aux_header{header_id}{specl_id}"
                 specl += f"struct {struct_name}" + "{};\n"
-                specl += "template<> struct " + f"Pattern<{struct_name}>" + "{ int f() {return 41;} };\n"
-                main_specls_used.append(f"Pattern<{struct_name},{_base_types[random.randint(0,len(_base_types)-1)]}>")
+                specl += (
+                    "template<> struct "
+                    + f"Pattern<{struct_name}>"
+                    + "{ int f() {return 41;} };\n"
+                )
+                main_specls_used.append(
+                    f"Pattern<{struct_name},{_base_types[random.randint(0,len(_base_types)-1)]}>"
+                )
             f.write(specl)
         aux_headers.append(header_path)
 
@@ -120,8 +126,9 @@ def gen(args):
     module_args_string += " -fmodule-file=main_header=./autogen/pcms/main_header.pcm "
 
     for header_id in tqdm.tqdm(range(1, args.headers)):
-        res = subprocess.run("/usr/bin/time -v " +
-            args.clang_path
+        res = subprocess.run(
+            "/usr/bin/time -v "
+            + args.clang_path
             + f" -x c++-header -Xclang -emit-module -o autogen/pcms/{header_id}.pcm -fmodules autogen/module.modulemap -fmodule-name={header_id} -fmodule-file={header_id}=./autogen/pcms/{header_id}.pcm -fmodule-file=main_header=./autogen/pcms/main_header.pcm -std=c++17 2>&1",
             capture_output=True,
             shell=True,
@@ -260,7 +267,7 @@ if __name__ == "__main__":
         elif "G" in du_opt.stdout.decode():
             on_disk_memory.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
 
-    plt.plot(headers, res, color="red", label='Clang 17.0.0 c83318')
+    plt.plot(headers, res, color="red", label="Clang 17.0.0 c83318")
     res_n = []
     headers_n = []
     args.clang_path = "../llvm-project/patch_without_map_debug/bin/clang++"
@@ -286,7 +293,7 @@ if __name__ == "__main__":
             on_disk_memory_n.append(float(du_opt.stdout.decode().split("M")[0]))
         elif "G" in du_opt.stdout.decode():
             on_disk_memory_n.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
-    plt.plot(headers_n, res_n, color="blue", label = "Vassil's D41416")
+    plt.plot(headers_n, res_n, color="blue", label="Vassil's D41416")
     res_n_n = []
     headers_n_n = []
     args.clang_path = "../llvm-project/build/bin/clang++"
@@ -307,23 +314,46 @@ if __name__ == "__main__":
             shell=True,
         )
         if "K" in du_opt.stdout.decode():
-            on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("K")[0]) / 1000)
+            on_disk_memory_n_n.append(
+                float(du_opt.stdout.decode().split("K")[0]) / 1000
+            )
         elif "M" in du_opt.stdout.decode():
             on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("M")[0]))
         elif "G" in du_opt.stdout.decode():
-            on_disk_memory_n_n.append(float(du_opt.stdout.decode().split("G")[0]) * 1000)
-    plt.plot(headers_n_n, res_n_n, color="green", label = "Shreyas's D144831")
+            on_disk_memory_n_n.append(
+                float(du_opt.stdout.decode().split("G")[0]) * 1000
+            )
+    plt.plot(headers_n_n, res_n_n, color="green", label="Shreyas's D144831")
+    plt.xlabel("Number of Specializations Unused")
+    plt.ylabel("Execution Time (s)")
+    plt.title(
+        "Execution time vs Number of Specializations Unused in main.cpp and not defined in headers"
+    )
     plt.legend()
     plt.savefig("plots/patch_plot.png")
     plt.cla()
-    plt.plot(headers_n_n, on_disk_memory_n_n, color="blue")
-    plt.plot(headers_n, on_disk_memory_n, color="red")
-    plt.plot(headers, on_disk_memory, color="green")
+    plt.plot(headers_n_n, on_disk_memory_n_n, color="green", label="Shreyas's D144831")
+    plt.plot(headers_n, on_disk_memory_n, color="blue", label="Vassil's D41416")
+    plt.plot(headers, on_disk_memory, color="red", label="Clang 17.0.0 c83318")
+    plt.xlabel("Number of Specializations Unused")
+    plt.ylabel("On Disk Memory (MB)")
+    plt.title(
+        "On Disk Memory vs Number of Specializations Unused in main.cpp and not defined in headers"
+    )
+    plt.legend()
     plt.savefig("plots/memory_patch_plot.png")
     plt.cla()
-    plt.plot(headers_n_n, memory_resident_avg_n_n, color="blue")
-    plt.plot(headers_n, memory_resident_avg_n, color="red")
-    plt.plot(headers, memory_resident_avg, color="green")
+    plt.plot(
+        headers_n_n, memory_resident_avg_n_n, color="green", label="Shreyas's D144831"
+    )
+    plt.plot(headers_n, memory_resident_avg_n, color="blue", label="Vassil's D41416")
+    plt.plot(headers, memory_resident_avg, color="red", label="Clang 17.0.0 c83318")
+    plt.xlabel("Number of Specializations Unused")
+    plt.ylabel("Resident Memory (MB)")
+    plt.title(
+        "Resident Memory using /usr/bin/time vs Number of Specializations Unused in main.cpp and not defined in headers"
+    )
+    plt.legend()
     plt.savefig("plots/resident_memory_plot.png")
     # plt.cla()
     # try:
